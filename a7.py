@@ -87,7 +87,10 @@ class BayesClassifier:
         # positive frequency dictionary. If it is neither a postive or negative file,
         # ignore it and move to the next file (this is more just to be safe; we won't
         # test your code with neutral reviews)
-        
+            if filename.startswith(self.neg_file_prefix):
+                self.update_dict(tokens,self.neg_freqs)
+            elif filename.startswith(self.pos_file_prefix):
+                self.update_dict(tokens, self.pos_freqs)
 
         # Updating frequences: to update the frequencies for each file, you need to get
         # the text of the file, tokenize it, then update the appropriate dictionary for
