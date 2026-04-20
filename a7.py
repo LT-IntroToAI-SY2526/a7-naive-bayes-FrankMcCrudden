@@ -243,7 +243,8 @@ class BayesClassifier:
         """
         # TODO: your work here
         
-        pass
+        for w in words:
+            freqs[w] = freqs.get[w,0] + 1
 
 
 if __name__ == "__main__":
