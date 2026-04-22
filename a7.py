@@ -1,7 +1,6 @@
 import math, os, pickle, re
 from typing import Tuple, List, Dict
 
-# Author: raberg1
 
 class BayesClassifier:
     """A simple BayesClassifier implementation
@@ -52,30 +51,48 @@ class BayesClassifier:
         _, __, files = next(os.walk(self.training_data_directory), (None, None, []))
         if not files:
             raise RuntimeError(f"Couldn't find path {self.training_data_directory}")
-        
 
         # files now holds a list of the filenames
         # self.training_data_directory holds the folder name where these files are
-        
 
-        # stored below is how you would load a file with filename given by `fName`
+        # stored below is how you would load a file with filename given by `filename`
         # `text` here will be the literal text of the file (i.e. what you would see
         # if you opened the file in a text editor
-        # text = self.load_file(os.path.join(self.training_data_directory, files[2]))
+        # text = self.load_file(os.path.join(self.training_data_directory, files[3]))
         # print(text)
 
         # *Tip:* training can take a while, to make it more transparent, we can use the
         # enumerate function, which loops over something and has an automatic counter.
         # write something like this to track progress (note the `# type: ignore` comment
         # which tells mypy we know better and it shouldn't complain at us on this line):
+        
+        # Create a list of stopwords
+        file = self.load_file("sorted_stoplist.txt")
+        # print(file)
+        stopwords = self.tokenize(file)
+        print(stopwords)
+        
         for index, filename in enumerate(files, 1): # type: ignore
             print(f"Training on file {index} of {len(files)}")
         #     <the rest of your code for updating frequencies here>
-            print(f"{index}: {filename}")
             text = self.load_file(os.path.join(self.training_data_directory, filename))
-            print(text)
             tokens = self.tokenize(text)
-            print(tokens)
+            # print(tokens)
+
+            filtered_tokens = [token for token in tokens if token not in stopwords]
+            # print(filtered_tokens)
+
+            if filename.startswith(self.pos_file_prefix):
+                self.update_dict(filtered_tokens, self.pos_freqs)
+            elif filename.startswith(self.neg_file_prefix):
+                self.update_dict(filtered_tokens, self.neg_freqs)
+
+        # print(self.pos_freqs["awesome"])
+        # print(self.neg_freqs["awesome"])
+        # print(self.pos_freqs["great"])
+        # print(self.neg_freqs["great"])
+        # print(self.pos_freqs["the"])
+        # print(self.neg_freqs["the"])
 
         # we want to fill pos_freqs and neg_freqs with the correct counts of words from
         # their respective reviews
@@ -87,10 +104,7 @@ class BayesClassifier:
         # positive frequency dictionary. If it is neither a postive or negative file,
         # ignore it and move to the next file (this is more just to be safe; we won't
         # test your code with neutral reviews)
-            if filename.startswith(self.neg_file_prefix):
-                self.update_dict(tokens,self.neg_freqs)
-            elif filename.startswith(self.pos_file_prefix):
-                self.update_dict(tokens, self.pos_freqs)
+        
 
         # Updating frequences: to update the frequencies for each file, you need to get
         # the text of the file, tokenize it, then update the appropriate dictionary for
@@ -109,59 +123,75 @@ class BayesClassifier:
         # are self.pos_filename and self.neg_filename
         self.save_dict(self.pos_freqs, self.pos_filename)
         self.save_dict(self.neg_freqs, self.neg_filename)
+
+
+
     def classify(self, text: str) -> str:
-        """Classifies given text as positive, or negative from calculating the
+        """Classifies given text as positive, negative or neutral from calculating the
         most likely document class to which the target string belongs
 
         Args:
             text - text to classify
 
         Returns:
-            classification, either positive, or negative
+            classification, either positive, negative or neutral
         """
-        tokens = self.tokenize(text)
-        pos_score = 0
-        neg_score = 0
-        pos_total = sum(self.pos_freqs.values())
-        neg_total = sum(self.neg_freqs.values())
-        for token in tokens:
-            pos_freq = self.pos_freqs.get(token,0) + 1
-            pos_score += math.log(pos_freq / pos_total)
-            neg_freq = self.neg_freqs.get(token,0) + 1
-            neg_score += math.log(neg_freq / neg_total)
-            if pos_score > neg_score:
-                return print("Positive score increase by" + pos_score)
-            else:
-                return print("Negative Score increased by" + neg_score)
-
-        # get a list of the individual tokens that occur in text
+        # TODO: fill me out
         
+        # get a list of the individual tokens that occur in text
+        tokens = self.tokenize(text)
+        print(tokens)
+
+        file = self.load_file("sorted_stoplist.txt")
+        stopwords = self.tokenize(file)
+
 
         # create some variables to store the positive and negative probability. since
         # we will be adding logs of probabilities, the initial values for the positive
         # and negative probabilities are set to 0
-        
+        pos_score = 0
+        neg_score = 0
 
         # get the sum of all of the frequencies of the features in each document class
         # (i.e. how many words occurred in all documents for the given class) - this
         # will be used in calculating the probability of each document class given each
         # individual feature
+        pos_total = sum(self.pos_freqs.values())
+        # print(pos_total)
+        neg_total = sum(self.neg_freqs.values())
+        # print(neg_total)
         
+        # Creating the entire vocab and finding the size
+        vocab = set(self.pos_freqs.keys()).union(self.neg_freqs.keys())
+        vocab_size = len(vocab)
 
         # for each token in the text, calculate the probability of it occurring in a
         # postive document and in a negative document and add the logs of those to the
         # running sums. when calculating the probabilities, always add 1 to the numerator
         # of each probability for add one smoothing (so that we never have a probability
         # of 0)
+        for token in tokens:
+            if token not in stopwords:
 
+                pos_freqs = self.pos_freqs.get(token, 0) + 1
+                neg_freqs = self.neg_freqs.get(token, 0) + 1
+
+                # print(pos_freqs, neg_freqs)
+
+                pos_score += math.log(pos_freqs / (pos_total + vocab_size))
+                neg_score += math.log(neg_freqs / (neg_total + vocab_size))
 
         # for debugging purposes, it may help to print the overall positive and negative
         # probabilities
-        
+        print(f"Positive Probability: {pos_score}")
+        print(f"Negative Probability: {neg_score}")
 
         # determine whether positive or negative was more probable (i.e. which one was
         # larger)
-        
+        if pos_score > neg_score:
+            return "positive"
+        else:
+            return "negative"
 
         # return a string of "positive" or "negative"
 
@@ -227,6 +257,8 @@ class BayesClassifier:
                 if c.strip() != "":
                     tokens.append(str(c.strip()))
 
+        if token != "":
+            tokens.append(token.lower())
         return tokens
 
     def update_dict(self, words: List[str], freqs: Dict[str, int]) -> None:
@@ -242,16 +274,19 @@ class BayesClassifier:
             freqs - dictionary of frequencies to update
         """
         # TODO: your work here
-        
-        for w in words:
-            freqs[w] = freqs.get[w,0] + 1
+        # print("update dict")
+        for word in words:
+            if word in freqs:
+                freqs[word] += 1
+            else:
+                freqs[word] = 1
 
 
 if __name__ == "__main__":
     # uncomment the below lines once you've implemented `train` & `classify`
     b = BayesClassifier()
     a_list_of_words = ["I", "really", "like", "this", "movie", ".", "I", "hope", \
-                        "you", "like", "it", "too"]
+                       "you", "like", "it", "too"]
     a_dictionary = {}
     b.update_dict(a_list_of_words, a_dictionary)
     assert a_dictionary["I"] == 2, "update_dict test 1"
@@ -276,12 +311,12 @@ if __name__ == "__main__":
     print(f"count for the word 'computer' in negative dictionary {b.neg_freqs['computer']}")
     print(f"count for the word 'science' in positive dictionary {b.pos_freqs['science']}")
     print(f"count for the word 'science' in negative dictionary {b.neg_freqs['science']}")
-    print(f"count for the word 'i' in positive dictionary {b.pos_freqs['i']}")
-    print(f"count for the word 'i' in negative dictionary {b.neg_freqs['i']}")
-    print(f"count for the word 'is' in positive dictionary {b.pos_freqs['is']}")
-    print(f"count for the word 'is' in negative dictionary {b.neg_freqs['is']}")
-    print(f"count for the word 'the' in positive dictionary {b.pos_freqs['the']}")
-    print(f"count for the word 'the' in negative dictionary {b.neg_freqs['the']}")
+    # print(f"count for the word 'i' in positive dictionary {b.pos_freqs['i']}")
+    # print(f"count for the word 'i' in negative dictionary {b.neg_freqs['i']}")
+    # print(f"count for the word 'is' in positive dictionary {b.pos_freqs['is']}")
+    # print(f"count for the word 'is' in negative dictionary {b.neg_freqs['is']}")
+    # print(f"count for the word 'the' in positive dictionary {b.pos_freqs['the']}")
+    # print(f"count for the word 'the' in negative dictionary {b.neg_freqs['the']}")
 
     print("\nHere are some sample probabilities.")
     print(f"P('love'| pos) {(b.pos_freqs['love']+1)/pos_denominator}")
@@ -296,3 +331,21 @@ if __name__ == "__main__":
     print("\nThe following should all be negative.")
     print(b.classify('rainy days are the worst'))
     print(b.classify('computer science is terrible'))
+    print()
+    
+    # Use this space to complete your analysis assignment
+    print("\nThe following is to test out the method with each groups responses")
+    print(b.classify("Summer break is almost here.  I am super excited and I know that it's going to be the best"))
+    # Complete two more positive sentiment strings
+    print(b.classify("I can’t wait for school to be over, I just have to finish the year strong and I’ll do great"))
+    print(b.classify("I’m so excited to play a new and exciting video game, it has such vibrant and breathtaking worlds"))
+    # Negative sentiment statements
+    print(b.classify("I am nervous that I won't do well on the AP tests.  I have studied, but I don't think I'll do that well"))
+    # Complete two more negative sentiment strings
+    print(b.classify("I hate school, all of the school work is so dumb, i can’t wait to get out of hear"))
+    print(b.classify("I don’t find baseball enjoyable, all it is, is just hitting a ball, that’s it, like, there’s nothing else to it"))
+
+    # Two positive reviews
+
+
+    # Two negative reviews
